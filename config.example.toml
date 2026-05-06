@@ -1,0 +1,37 @@
+# prmigrate configuration template.
+# Copy to config.toml and edit. Tokens may be passed via env vars instead:
+#   PRMIGRATE_BITBUCKET_TOKEN, PRMIGRATE_GITHUB_TOKEN
+
+[bitbucket]
+username = "your-bitbucket-username"
+# token = "..."            # leave empty and use PRMIGRATE_BITBUCKET_TOKEN env var
+
+[github]
+api_base = "https://api.github.com"  # for github.com / GitHub Enterprise Cloud
+# api_base = "https://github.example.com/api/v3"  # for GHES
+# token = "..."            # leave empty and use PRMIGRATE_GITHUB_TOKEN env var
+
+# Bitbucket user identifier (nickname / UUID / Atlassian account_id) -> GitHub username.
+# Add multiple entries for the same person if Bitbucket returns different ids.
+[user_mapping]
+alice_bb = "alice-gh"
+"{a1b2c3d4-1111-2222-3333-444455556666}" = "alice-gh"
+"557058:11112222-3333-4444-5555-666677778888" = "alice-gh"
+bob_bb = "bob-gh"
+
+# Bitbucket repo full name -> GitHub repo full name.
+[repo_mapping]
+"myteam/service-a" = "myorg/service-a"
+"myteam/service-b" = "myorg/service-b"
+
+# Optional: customize the labels applied based on PR state. Empty value = no extra label.
+[state_labels]
+OPEN = ""
+MERGED = "merged"
+DECLINED = "declined"
+SUPERSEDED = "superseded"
+
+[tuning]
+bitbucket_rps = 0.25   # 1 request per 4 seconds; well under the 1000/hr limit
+fill_gaps = true       # create placeholder issues for missing PR numbers
+dry_run = false        # may also be enabled via -dry-run CLI flag

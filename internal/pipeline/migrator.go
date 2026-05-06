@@ -1,0 +1,179 @@
+// Package pipeline orchestrates the migration of one Bitbucket repository's
+// pull requests into a target GitHub repository. The high-level flow is:
+//
+//  1. Enumerate all PR IDs in Bitbucket (sorted ascending).
+//  2. For each PR id, in numerical order:
+//     a. Fetch the PR detail, comments, and activity stream.
+//     b. Transform into a GitHub Issue Import API request.
+//     c. Submit, wait for terminal status (so issue numbers are deterministic).
+//     d. If the assigned issue number does not match the Bitbucket PR number,
+//        warn loudly -- the gap-fill below should prevent this normally.
+//  3. Before each real PR, if there is a numerical gap (e.g. PR #5 is missing),
+//     submit a dummy "Deleted PR #N" issue so numbering stays aligned.
+//
+// We submit serially because the GitHub Issue Import API assigns numbers in
+// completion order, not submission order; submitting in parallel risks
+// re-ordering and is also gentle on the rate limiter.
+package pipeline
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"github.com/gozuk16/prmigrate/internal/bitbucket"
+	"github.com/gozuk16/prmigrate/internal/config"
+	"github.com/gozuk16/prmigrate/internal/githubimport"
+	"github.com/gozuk16/prmigrate/internal/transform"
+)
+
+// Migrator runs the migration for a single (bitbucket repo, github repo) pair.
+type Migrator struct {
+	Cfg            *config.Config
+	BitbucketRepo  string
+	GitHubRepo     string
+
+	bb   *bitbucket.Client
+	gh   *githubimport.Client
+	xfmr *transform.Transformer
+	log  *slog.Logger
+}
+
+// New constructs a Migrator wired up with all the per-repo clients.
+func New(cfg *config.Config, bbRepo, ghRepo string, log *slog.Logger) *Migrator {
+	return &Migrator{
+		Cfg:           cfg,
+		BitbucketRepo: bbRepo,
+		GitHubRepo:    ghRepo,
+		bb:            bitbucket.NewClient(bbRepo, bitbucket.Auth{Username: cfg.Bitbucket.Username, Token: cfg.Bitbucket.Token}, cfg.Tuning.BitbucketRPS),
+		gh:            githubimport.NewClient(cfg.GitHub.APIBase, ghRepo, cfg.GitHub.Token),
+		xfmr:          transform.New(cfg, bbRepo, ghRepo),
+		log:           log.With("bb_repo", bbRepo, "gh_repo", ghRepo),
+	}
+}
+
+// Run executes the migration end-to-end.
+func (m *Migrator) Run(ctx context.Context) error {
+	m.log.Info("listing pull requests")
+	ids, err := m.bb.ListPullRequestIDs(ctx)
+	if err != nil {
+		return fmt.Errorf("list PRs: %w", err)
+	}
+	m.log.Info("found pull requests", "count", len(ids))
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// We expect ids to be the contiguous range 1..max in most repos, but
+	// deletions or admin actions can leave gaps. We sort and walk explicitly
+	// to handle gaps via placeholder issues.
+	sortInts(ids)
+	maxID := ids[len(ids)-1]
+	idsSet := make(map[int]bool, len(ids))
+	for _, id := range ids {
+		idsSet[id] = true
+	}
+
+	for n := 1; n <= maxID; n++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		if !idsSet[n] {
+			if !m.Cfg.Tuning.FillGaps {
+				continue
+			}
+			if err := m.submitPlaceholder(ctx, n); err != nil {
+				return fmt.Errorf("placeholder #%d: %w", n, err)
+			}
+			continue
+		}
+
+		if err := m.migrateOne(ctx, n); err != nil {
+			// Don't abort the whole run on a single PR failure; log and continue.
+			m.log.Error("PR migration failed", "pr", n, "err", err)
+		}
+	}
+	return nil
+}
+
+func (m *Migrator) migrateOne(ctx context.Context, prID int) error {
+	m.log.Info("fetching PR", "pr", prID)
+	pr, err := m.bb.GetPullRequest(ctx, prID)
+	if err != nil {
+		return fmt.Errorf("fetch PR: %w", err)
+	}
+	comments, err := m.bb.ListComments(ctx, prID)
+	if err != nil {
+		return fmt.Errorf("fetch comments: %w", err)
+	}
+	activity, err := m.bb.ListActivity(ctx, prID)
+	if err != nil {
+		return fmt.Errorf("fetch activity: %w", err)
+	}
+
+	req := m.xfmr.PullRequestToImport(pr, comments, activity)
+
+	if m.Cfg.Tuning.DryRun {
+		m.log.Info("dry-run: would import PR", "pr", prID,
+			"title", pr.Title,
+			"comments", len(req.Comments),
+			"body_bytes", len(req.Issue.Body))
+		return nil
+	}
+
+	status, err := m.gh.SubmitAndWait(ctx, req)
+	if err != nil {
+		return fmt.Errorf("submit import: %w", err)
+	}
+	if status.Status != "imported" {
+		return fmt.Errorf("import non-imported status=%s errors=%v", status.Status, status.Errors)
+	}
+	assigned := status.IssueNumber()
+	if assigned != prID {
+		m.log.Warn("issue number mismatch",
+			"bitbucket_pr", prID, "github_issue", assigned)
+	} else {
+		m.log.Info("imported", "pr", prID, "issue", assigned)
+	}
+	return nil
+}
+
+func (m *Migrator) submitPlaceholder(ctx context.Context, n int) error {
+	now := time.Now().UTC()
+	req := &githubimport.ImportRequest{
+		Issue: githubimport.Issue{
+			Title:     fmt.Sprintf("Deleted Bitbucket PR #%d", n),
+			Body:      "_This Bitbucket pull request number was missing or deleted at migration time._",
+			CreatedAt: &now,
+			UpdatedAt: &now,
+			ClosedAt:  &now,
+			Closed:    true,
+			Labels:    []string{"placeholder"},
+		},
+	}
+	if m.Cfg.Tuning.DryRun {
+		m.log.Info("dry-run: would create placeholder", "n", n)
+		return nil
+	}
+	status, err := m.gh.SubmitAndWait(ctx, req)
+	if err != nil {
+		return err
+	}
+	if status.Status != "imported" {
+		return fmt.Errorf("placeholder import status=%s errors=%v", status.Status, status.Errors)
+	}
+	m.log.Info("placeholder created", "n", n, "issue", status.IssueNumber())
+	return nil
+}
+
+func sortInts(a []int) {
+	// stdlib generics sort, kept inline to avoid importing slices for one call site.
+	for i := 1; i < len(a); i++ {
+		for j := i; j > 0 && a[j-1] > a[j]; j-- {
+			a[j-1], a[j] = a[j], a[j-1]
+		}
+	}
+}
