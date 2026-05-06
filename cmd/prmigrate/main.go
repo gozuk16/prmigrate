@@ -2,9 +2,9 @@
 //
 // Usage:
 //
-//	prmigrate -config config.yaml -repo workspace/repo
-//	prmigrate -config config.yaml -repo workspace/repo -dry-run
-//	prmigrate -config config.yaml -all
+//	prmigrate -config config.toml -repo workspace/repo
+//	prmigrate -config config.toml -repo workspace/repo -dry-run
+//	prmigrate -config config.toml -all
 package main
 
 import (
@@ -22,7 +22,7 @@ import (
 
 func main() {
 	var (
-		configPath = flag.String("config", "config.yaml", "path to YAML config file")
+		configPath = flag.String("config", "config.toml", "path to YAML config file")
 		repo       = flag.String("repo", "", `Bitbucket repo to migrate, e.g. "workspace/myrepo"`)
 		all        = flag.Bool("all", false, "migrate every repo in repo_mapping")
 		dryRun     = flag.Bool("dry-run", false, "do not write to GitHub; only fetch and transform")
