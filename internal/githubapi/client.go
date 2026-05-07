@@ -50,12 +50,12 @@ func (c *Client) BranchExists(ctx context.Context, branch string) (bool, error) 
 	case http.StatusNotFound:
 		return false, nil
 	default:
-		return false, fmt.Errorf("branch check failed: %s", resp.Status)
+		return false, fmt.Errorf("check branch %q: %s", branch, resp.Status)
 	}
 }
 
 func (c *Client) setHeaders(req *http.Request) {
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "token "+c.token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	req.Header.Set("Content-Type", "application/json")
