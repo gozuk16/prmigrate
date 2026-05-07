@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -74,7 +75,9 @@ func TestMigrator_mergedPR(t *testing.T) {
 	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/import/issues" {
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &got) //nolint:errcheck
+			if err := json.Unmarshal(body, &got); err != nil {
+				t.Fatalf("unmarshal request body: %v", err)
+			}
 			w.WriteHeader(http.StatusAccepted)
 			fmt.Fprint(w, terminalImportResponse)
 			return
@@ -137,11 +140,18 @@ func TestMigrator_openPR_branchExists(t *testing.T) {
 	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/branches/"):
+			rawBranch := strings.TrimPrefix(r.URL.Path, "/repos/org/repo/branches/")
+			gotBranch, _ := url.PathUnescape(rawBranch)
+			if gotBranch != "feature/add" {
+				t.Errorf("branch check: got %q, want feature/add", gotBranch)
+			}
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, `{"name":"feature/add"}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/pulls":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &gotPR) //nolint:errcheck
+			if err := json.Unmarshal(body, &gotPR); err != nil {
+				t.Fatalf("unmarshal request body: %v", err)
+			}
 			w.WriteHeader(http.StatusCreated)
 			fmt.Fprint(w, `{"number":1,"html_url":"http://example.com/pull/1"}`)
 		default:
@@ -282,14 +292,21 @@ func TestMigrator_dryRun(t *testing.T) {
 	}))
 	defer bbSrv.Close()
 
+	var writeAttempted bool
 	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/branches/"):
+			rawBranch := strings.TrimPrefix(r.URL.Path, "/repos/org/repo/branches/")
+			gotBranch, _ := url.PathUnescape(rawBranch)
+			if gotBranch != "feature/add" {
+				t.Errorf("branch check: got %q, want feature/add", gotBranch)
+			}
 			// BranchExists is a read-only call; allowed even in dry-run.
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, `{"name":"feature/add"}`)
 		default:
 			// Any POST (Import API or PR API) must not be called in dry-run.
+			writeAttempted = true
 			t.Errorf("dry-run must not make write requests: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusInternalServerError)
 		}
@@ -303,5 +320,8 @@ func TestMigrator_dryRun(t *testing.T) {
 	if err := m.Run(context.Background()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	// Write requests trigger t.Errorf in the handler; no explicit assertion needed here.
+
+	if writeAttempted {
+		t.Error("write was attempted in dry-run mode (explicit check)")
+	}
 }
