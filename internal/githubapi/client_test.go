@@ -60,6 +60,29 @@ func TestBranchExists_serverError(t *testing.T) {
 	}
 }
 
+func TestBranchExists_slashInBranchName(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if r.Method == http.MethodGet && r.URL.Path == "/repos/org/repo/branches/feature%2Fadd" {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `{"name":"feature/add"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	c := githubapi.NewClient(srv.URL, "org/repo", "tok")
+	exists, err := c.BranchExists(context.Background(), "feature/add")
+	if err != nil {
+		t.Fatalf("BranchExists error: %v (path received: %s)", err, gotPath)
+	}
+	if !exists {
+		t.Errorf("expected branch to exist (path received: %s)", gotPath)
+	}
+}
+
 func TestCreatePullRequest_success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/pulls" {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -32,8 +33,13 @@ func NewClient(apiBase, repoFullName, token string) *Client {
 // BranchExists reports whether the named branch exists in the repository.
 // A 404 response returns (false, nil); other non-200 responses return an error.
 func (c *Client) BranchExists(ctx context.Context, branch string) (bool, error) {
-	url := fmt.Sprintf("%s/branches/%s", c.baseURL, branch)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	parsedURL, err := url.Parse(c.baseURL + "/branches/")
+	if err != nil {
+		return false, err
+	}
+	parsedURL.Path = parsedURL.Path + url.PathEscape(branch)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return false, err
 	}
