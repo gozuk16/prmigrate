@@ -10,11 +10,12 @@
   - CLI エントリポイント（urfave/cli/v3）
   - TOML 設定ファイル読み込み
 
-## 未着手
-
-- [ ] Open PR の本物の PR 再作成（`internal/githubapi/` パッケージ）
+- [x] Open PR の本物の PR 再作成（`internal/githubapi/` パッケージ）
   - ブランチが生きている Open PR は GitHub PR API で復元
   - ブランチ削除済みの場合は Issue として記録
+
+## 未着手
+
 - [ ] テスト追加
   - transform パッケージの単体テスト
   - pipeline パッケージの統合テスト

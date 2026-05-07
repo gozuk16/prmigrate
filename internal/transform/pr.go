@@ -41,7 +41,7 @@ func (t *Transformer) PullRequestToImport(
 	comments []bitbucket.Comment,
 	activity []bitbucket.Activity,
 ) *githubimport.ImportRequest {
-	body := t.buildPRBody(pr)
+	body := t.BuildPRBody(pr)
 
 	closed := !isOpen(pr.State)
 	created := pr.CreatedOn
@@ -75,9 +75,9 @@ func (t *Transformer) PullRequestToImport(
 	}
 }
 
-// buildPRBody produces the Markdown body for the imported issue, embedding
+// BuildPRBody produces the Markdown body for the imported issue, embedding
 // metadata that the Issue Import API cannot represent natively.
-func (t *Transformer) buildPRBody(pr *bitbucket.PullRequest) string {
+func (t *Transformer) BuildPRBody(pr *bitbucket.PullRequest) string {
 	var b strings.Builder
 
 	// --- Header (quoted block carrying preserved metadata) ---
@@ -315,4 +315,19 @@ func (t *Transformer) commitLink(hash string) string {
 	}
 	return fmt.Sprintf("[`%s`](https://github.com/%s/commit/%s)",
 		short, t.githubRepo, hash)
+}
+
+// BuildCommentBodies returns the Markdown body strings for each non-deleted
+// comment and activity entry, sorted chronologically. Used when creating
+// comments via the GitHub REST API (which cannot set timestamps).
+func (t *Transformer) BuildCommentBodies(
+	comments []bitbucket.Comment,
+	activity []bitbucket.Activity,
+) []string {
+	importComments := t.buildComments(comments, activity)
+	bodies := make([]string, len(importComments))
+	for i, c := range importComments {
+		bodies[i] = c.Body
+	}
+	return bodies
 }

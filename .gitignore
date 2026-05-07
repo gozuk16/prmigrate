@@ -36,3 +36,6 @@ prmigrate
 
 # config file
 config.toml
+
+# git worktrees
+.worktrees/
