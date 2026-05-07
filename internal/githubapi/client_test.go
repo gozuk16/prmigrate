@@ -107,3 +107,34 @@ func TestCreatePullRequest_validationError(t *testing.T) {
 		t.Error("expected error for 422 response")
 	}
 }
+
+func TestCreateIssueComment_success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/issues/5/comments" {
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprint(w, `{"id":101}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	c := githubapi.NewClient(srv.URL, "org/repo", "tok")
+	err := c.CreateIssueComment(context.Background(), 5, "great PR!")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCreateIssueComment_serverError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	c := githubapi.NewClient(srv.URL, "org/repo", "tok")
+	err := c.CreateIssueComment(context.Background(), 5, "great PR!")
+	if err == nil {
+		t.Error("expected error for 5xx response")
+	}
+}

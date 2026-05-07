@@ -88,6 +88,38 @@ func (c *Client) CreatePullRequest(ctx context.Context, prReq *CreatePullRequest
 	return &pr, nil
 }
 
+// CreateIssueComment posts a comment on a GitHub issue or pull request.
+// PRs and Issues share the same comment endpoint on GitHub.
+func (c *Client) CreateIssueComment(ctx context.Context, issueNumber int, commentBody string) error {
+	payload := struct {
+		Body string `json:"body"`
+	}{Body: commentBody}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/issues/%d/comments", c.baseURL, issueNumber)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("create comment failed: %s: %s", resp.Status, string(respBody))
+	}
+	return nil
+}
+
 func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("Authorization", "token "+c.token)
 	req.Header.Set("Accept", "application/vnd.github+json")
