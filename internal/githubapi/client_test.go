@@ -59,3 +59,51 @@ func TestBranchExists_serverError(t *testing.T) {
 		t.Error("expected error for 5xx response")
 	}
 }
+
+func TestCreatePullRequest_success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/pulls" {
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprint(w, `{"number":5,"html_url":"https://github.com/org/repo/pull/5"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	c := githubapi.NewClient(srv.URL, "org/repo", "tok")
+	pr, err := c.CreatePullRequest(context.Background(), &githubapi.CreatePullRequestRequest{
+		Title: "Fix bug",
+		Body:  "description",
+		Head:  "feature-x",
+		Base:  "main",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pr.Number != 5 {
+		t.Errorf("expected PR number 5, got %d", pr.Number)
+	}
+	if pr.HTMLURL != "https://github.com/org/repo/pull/5" {
+		t.Errorf("unexpected HTMLURL: %s", pr.HTMLURL)
+	}
+}
+
+func TestCreatePullRequest_validationError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprint(w, `{"message":"Validation Failed","errors":[{"message":"No commits between main and feature-x"}]}`)
+	}))
+	defer srv.Close()
+
+	c := githubapi.NewClient(srv.URL, "org/repo", "tok")
+	_, err := c.CreatePullRequest(context.Background(), &githubapi.CreatePullRequestRequest{
+		Title: "Fix bug",
+		Body:  "description",
+		Head:  "feature-x",
+		Base:  "main",
+	})
+	if err == nil {
+		t.Error("expected error for 422 response")
+	}
+}

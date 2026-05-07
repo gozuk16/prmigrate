@@ -1,7 +1,9 @@
 package githubapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -52,6 +54,38 @@ func (c *Client) BranchExists(ctx context.Context, branch string) (bool, error) 
 	default:
 		return false, fmt.Errorf("check branch %q: %s", branch, resp.Status)
 	}
+}
+
+// CreatePullRequest creates a GitHub pull request and returns it.
+// Returns an error for non-201 responses (e.g. 422 when head == base).
+func (c *Client) CreatePullRequest(ctx context.Context, prReq *CreatePullRequestRequest) (*PullRequest, error) {
+	body, err := json.Marshal(prReq)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/pulls", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("create PR failed: %s: %s", resp.Status, string(respBody))
+	}
+
+	var pr PullRequest
+	if err := json.Unmarshal(respBody, &pr); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &pr, nil
 }
 
 func (c *Client) setHeaders(req *http.Request) {
