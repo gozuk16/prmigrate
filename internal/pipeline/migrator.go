@@ -24,20 +24,22 @@ import (
 
 	"github.com/gozuk16/prmigrate/internal/bitbucket"
 	"github.com/gozuk16/prmigrate/internal/config"
+	"github.com/gozuk16/prmigrate/internal/githubapi"
 	"github.com/gozuk16/prmigrate/internal/githubimport"
 	"github.com/gozuk16/prmigrate/internal/transform"
 )
 
 // Migrator runs the migration for a single (bitbucket repo, github repo) pair.
 type Migrator struct {
-	Cfg            *config.Config
-	BitbucketRepo  string
-	GitHubRepo     string
+	Cfg           *config.Config
+	BitbucketRepo string
+	GitHubRepo    string
 
-	bb   *bitbucket.Client
-	gh   *githubimport.Client
-	xfmr *transform.Transformer
-	log  *slog.Logger
+	bb    *bitbucket.Client
+	gh    *githubimport.Client
+	ghapi *githubapi.Client
+	xfmr  *transform.Transformer
+	log   *slog.Logger
 }
 
 // New constructs a Migrator wired up with all the per-repo clients.
@@ -48,6 +50,7 @@ func New(cfg *config.Config, bbRepo, ghRepo string, log *slog.Logger) *Migrator 
 		GitHubRepo:    ghRepo,
 		bb:            bitbucket.NewClient(bbRepo, bitbucket.Auth{Username: cfg.Bitbucket.Username, Token: cfg.Bitbucket.Token}, cfg.Tuning.BitbucketRPS),
 		gh:            githubimport.NewClient(cfg.GitHub.APIBase, ghRepo, cfg.GitHub.Token),
+		ghapi:         githubapi.NewClient(cfg.GitHub.APIBase, ghRepo, cfg.GitHub.Token),
 		xfmr:          transform.New(cfg, bbRepo, ghRepo),
 		log:           log.With("bb_repo", bbRepo, "gh_repo", ghRepo),
 	}
@@ -114,6 +117,17 @@ func (m *Migrator) migrateOne(ctx context.Context, prID int) error {
 		return fmt.Errorf("fetch activity: %w", err)
 	}
 
+	// For OPEN PRs with a living source branch, attempt GitHub PR API.
+	if isOpen(pr.State) && pr.Source.Branch != nil && pr.Destination.Branch != nil {
+		created, err := m.tryCreateGitHubPR(ctx, pr, comments, activity)
+		if err != nil {
+			m.log.Warn("GitHub PR creation failed, falling back to Issue Import",
+				"pr", prID, "err", err)
+		} else if created {
+			return nil
+		}
+	}
+
 	req := m.xfmr.PullRequestToImport(pr, comments, activity)
 
 	if m.Cfg.Tuning.DryRun {
@@ -139,6 +153,60 @@ func (m *Migrator) migrateOne(ctx context.Context, prID int) error {
 		m.log.Info("imported", "pr", prID, "issue", assigned)
 	}
 	return nil
+}
+
+// tryCreateGitHubPR attempts to create a real GitHub PR for an OPEN Bitbucket PR.
+// Returns (true, nil) on success, (false, nil) if the source branch is absent
+// (caller should fall back to Issue Import), or (false, err) on unexpected failure.
+func (m *Migrator) tryCreateGitHubPR(
+	ctx context.Context,
+	pr *bitbucket.PullRequest,
+	comments []bitbucket.Comment,
+	activity []bitbucket.Activity,
+) (bool, error) {
+	exists, err := m.ghapi.BranchExists(ctx, pr.Source.Branch.Name)
+	if err != nil {
+		return false, fmt.Errorf("branch check: %w", err)
+	}
+	if !exists {
+		m.log.Info("source branch deleted; will import as Issue",
+			"pr", pr.ID, "branch", pr.Source.Branch.Name)
+		return false, nil
+	}
+
+	if m.Cfg.Tuning.DryRun {
+		m.log.Info("dry-run: would create GitHub PR",
+			"pr", pr.ID, "head", pr.Source.Branch.Name, "base", pr.Destination.Branch.Name)
+		return true, nil
+	}
+
+	body := m.xfmr.BuildPRBody(pr)
+	ghPR, err := m.ghapi.CreatePullRequest(ctx, &githubapi.CreatePullRequestRequest{
+		Title: pr.Title,
+		Body:  body,
+		Head:  pr.Source.Branch.Name,
+		Base:  pr.Destination.Branch.Name,
+	})
+	if err != nil {
+		return false, fmt.Errorf("create PR: %w", err)
+	}
+
+	m.log.Info("created GitHub PR", "bb_pr", pr.ID, "gh_pr", ghPR.Number, "url", ghPR.HTMLURL)
+	if ghPR.Number != pr.ID {
+		m.log.Warn("PR number mismatch", "bitbucket_pr", pr.ID, "github_pr", ghPR.Number)
+	}
+
+	for _, commentBody := range m.xfmr.BuildCommentBodies(comments, activity) {
+		if err := m.ghapi.CreateIssueComment(ctx, ghPR.Number, commentBody); err != nil {
+			m.log.Warn("failed to post comment on PR", "gh_pr", ghPR.Number, "err", err)
+		}
+	}
+
+	return true, nil
+}
+
+func isOpen(state string) bool {
+	return state == "OPEN"
 }
 
 func (m *Migrator) submitPlaceholder(ctx context.Context, n int) error {
