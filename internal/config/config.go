@@ -37,6 +37,7 @@ type Config struct {
 }
 
 type BitbucketConfig struct {
+	APIBase  string `toml:"api_base"` // default: https://api.bitbucket.org/2.0
 	Username string `toml:"username"`
 	Token    string `toml:"token"` // app password or API token
 }
@@ -73,6 +74,9 @@ func Load(path string) (*Config, error) {
 
 // ApplyDefaults fills in any unset fields with sensible defaults.
 func (c *Config) ApplyDefaults() {
+	if c.Bitbucket.APIBase == "" {
+		c.Bitbucket.APIBase = "https://api.bitbucket.org/2.0"
+	}
 	if c.GitHub.APIBase == "" {
 		c.GitHub.APIBase = "https://api.github.com"
 	}

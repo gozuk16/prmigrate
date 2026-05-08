@@ -31,12 +31,12 @@ type Auth struct {
 }
 
 // NewClient creates a client for the specified repository (e.g. "workspace/repo").
-// rps is the maximum sustained request rate (Bitbucket Cloud's documented
-// limit for authenticated users is 1000/hour ≈ 0.27 req/s, so 0.2 is a safe default).
-func NewClient(repoFullName string, auth Auth, rps float64) *Client {
+// apiBase: e.g. "https://api.bitbucket.org/2.0" (or a test httptest server URL).
+// rps is the maximum sustained request rate.
+func NewClient(apiBase, repoFullName string, auth Auth, rps float64) *Client {
 	return &Client{
 		httpClient: &http.Client{Timeout: 30 * time.Second},
-		baseURL:    "https://api.bitbucket.org/2.0/repositories/" + repoFullName,
+		baseURL:    fmt.Sprintf("%s/repositories/%s", apiBase, repoFullName),
 		auth:       auth,
 		limiter:    rate.NewLimiter(rate.Limit(rps), 1),
 	}

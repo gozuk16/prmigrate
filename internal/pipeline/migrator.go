@@ -48,7 +48,7 @@ func New(cfg *config.Config, bbRepo, ghRepo string, log *slog.Logger) *Migrator 
 		Cfg:           cfg,
 		BitbucketRepo: bbRepo,
 		GitHubRepo:    ghRepo,
-		bb:            bitbucket.NewClient(bbRepo, bitbucket.Auth{Username: cfg.Bitbucket.Username, Token: cfg.Bitbucket.Token}, cfg.Tuning.BitbucketRPS),
+		bb:            bitbucket.NewClient(cfg.Bitbucket.APIBase, bbRepo, bitbucket.Auth{Username: cfg.Bitbucket.Username, Token: cfg.Bitbucket.Token}, cfg.Tuning.BitbucketRPS),
 		gh:            githubimport.NewClient(cfg.GitHub.APIBase, ghRepo, cfg.GitHub.Token),
 		ghapi:         githubapi.NewClient(cfg.GitHub.APIBase, ghRepo, cfg.GitHub.Token),
 		xfmr:          transform.New(cfg, bbRepo, ghRepo),
