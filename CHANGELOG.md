@@ -7,6 +7,9 @@
 - OPEN PR のうちソースブランチが GitHub 側に存在するものを本物の GitHub PR として再作成する機能
 - PR 作成失敗時は Issue Import API へのフォールバック
 - `transform.BuildPRBody`（公開化）と `transform.BuildCommentBodies`（新規追加）
+- `BitbucketConfig.APIBase` フィールドを追加（テスト用サーバー URL の注入に対応）
+- `internal/transform/links_test.go`: URL書き換え・@mention書き換えの単体テスト 10件
+- `internal/pipeline/migrator_test.go`: httptest モックによる統合テスト 5シナリオ（テスト件数 11件 → 28件）
 
 ## [0.1.0] - 2026-05-06
 
