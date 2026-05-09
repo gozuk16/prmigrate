@@ -12,6 +12,12 @@
 - `internal/pipeline/migrator_test.go`: httptest モックによる統合テスト 5シナリオ（テスト件数 11件 → 28件）
 - `--dry-run` 実行時に変換結果のプレビューと件数サマリーを stdout に出力（`-v` で本文プレビューも表示）
 - `internal/pipeline/report.go`: `DryRunAction` / `DryRunEntry` / `DryRunReport` 型と集計メソッドを追加
+- PR ルーティングの意思決定ログを追加（`PR route check` / `skipping GitHub PR attempt` / `GitHub branch check result`）
+
+### Fixed
+- Bitbucket `ListPullRequestIDs`: `fields` パラメーターの `+` が URL エンコードされ `Invalid pagelen` エラーを引き起こしていた問題を修正
+- Bitbucket `ListComments` / `ListActivity`: `pagelen=100` が上限超過で `Invalid pagelen` エラーになる問題を修正（`pagelen=50` に変更）
+- `BranchExists`: `url.PathEscape` でブランチ名の `/` が二重エンコード（`%252F`）され、スラッシュを含むブランチが常に存在しないと判定されていた問題を修正
 
 ## [0.1.0] - 2026-05-06
 
