@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- `formatDate` が実行環境の OS タイムゾーン（`time.Local`）で日時を表示するように変更（`2006-01-02 15:04 JST` 形式）
 - `internal/githubapi`: GitHub REST API クライアント（BranchExists / CreatePullRequest / CreateIssueComment）
 - OPEN PR のうちソースブランチが GitHub 側に存在するものを本物の GitHub PR として再作成する機能
 - PR 作成失敗時は Issue Import API へのフォールバック
