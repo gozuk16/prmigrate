@@ -146,7 +146,7 @@ func (c *Client) ListComments(ctx context.Context, prID int) ([]Comment, error) 
 		Values []Comment `json:"values"`
 	}
 	var all []Comment
-	next := fmt.Sprintf("%s/pullrequests/%d/comments?pagelen=100", c.baseURL, prID)
+	next := fmt.Sprintf("%s/pullrequests/%d/comments?pagelen=50", c.baseURL, prID)
 	for next != "" {
 		var p page
 		if err := c.doJSON(ctx, next, &p); err != nil {
@@ -166,7 +166,7 @@ func (c *Client) ListActivity(ctx context.Context, prID int) ([]Activity, error)
 		Values []Activity `json:"values"`
 	}
 	var all []Activity
-	next := fmt.Sprintf("%s/pullrequests/%d/activity?pagelen=100", c.baseURL, prID)
+	next := fmt.Sprintf("%s/pullrequests/%d/activity?pagelen=50", c.baseURL, prID)
 	for next != "" {
 		var p page
 		if err := c.doJSON(ctx, next, &p); err != nil {
