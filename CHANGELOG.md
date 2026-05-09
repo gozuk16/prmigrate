@@ -10,6 +10,8 @@
 - `BitbucketConfig.APIBase` フィールドを追加（テスト用サーバー URL の注入に対応）
 - `internal/transform/links_test.go`: URL書き換え・@mention書き換えの単体テスト 10件
 - `internal/pipeline/migrator_test.go`: httptest モックによる統合テスト 5シナリオ（テスト件数 11件 → 28件）
+- `--dry-run` 実行時に変換結果のプレビューと件数サマリーを stdout に出力（`-v` で本文プレビューも表示）
+- `internal/pipeline/report.go`: `DryRunAction` / `DryRunEntry` / `DryRunReport` 型と集計メソッドを追加
 
 ## [0.1.0] - 2026-05-06
 
