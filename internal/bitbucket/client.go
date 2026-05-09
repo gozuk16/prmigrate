@@ -97,12 +97,10 @@ func (c *Client) doJSON(ctx context.Context, fullURL string, out any) error {
 // PRs are listed via /pullrequests with state filters.
 func (c *Client) ListPullRequestIDs(ctx context.Context) ([]int, error) {
 	// We page through every state. Bitbucket allows multiple state= params.
-	// Field projection (?fields=) keeps response size small.
 	params := url.Values{}
 	for _, s := range []string{"OPEN", "MERGED", "DECLINED", "SUPERSEDED"} {
 		params.Add("state", s)
 	}
-	params.Set("fields", "+values.id,+next")
 	params.Set("pagelen", "50")
 
 	startURL := c.baseURL + "/pullrequests?" + params.Encode()
