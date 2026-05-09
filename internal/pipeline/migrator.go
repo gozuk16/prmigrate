@@ -118,6 +118,20 @@ func (m *Migrator) migrateOne(ctx context.Context, prID int) error {
 		return fmt.Errorf("fetch activity: %w", err)
 	}
 
+	// Log routing criteria before deciding GitHub PR vs Issue Import.
+	srcBranch, dstBranch := "", ""
+	if pr.Source.Branch != nil {
+		srcBranch = pr.Source.Branch.Name
+	}
+	if pr.Destination.Branch != nil {
+		dstBranch = pr.Destination.Branch.Name
+	}
+	m.log.Info("PR route check",
+		"pr", prID,
+		"state", pr.State,
+		"src_branch", srcBranch,
+		"dst_branch", dstBranch)
+
 	// For OPEN PRs with a living source branch, attempt GitHub PR API.
 	if isOpen(pr.State) && pr.Source.Branch != nil && pr.Destination.Branch != nil {
 		created, err := m.tryCreateGitHubPR(ctx, pr, comments, activity)
@@ -127,6 +141,12 @@ func (m *Migrator) migrateOne(ctx context.Context, prID int) error {
 		} else if created {
 			return nil
 		}
+	} else {
+		m.log.Info("skipping GitHub PR attempt",
+			"pr", prID,
+			"not_open", !isOpen(pr.State),
+			"no_src_branch", pr.Source.Branch == nil,
+			"no_dst_branch", pr.Destination.Branch == nil)
 	}
 
 	req := m.xfmr.PullRequestToImport(pr, comments, activity)
@@ -173,10 +193,12 @@ func (m *Migrator) tryCreateGitHubPR(
 	comments []bitbucket.Comment,
 	activity []bitbucket.Activity,
 ) (bool, error) {
+	m.log.Info("checking GitHub branch", "pr", pr.ID, "branch", pr.Source.Branch.Name)
 	exists, err := m.ghapi.BranchExists(ctx, pr.Source.Branch.Name)
 	if err != nil {
 		return false, fmt.Errorf("branch check: %w", err)
 	}
+	m.log.Info("GitHub branch check result", "pr", pr.ID, "branch", pr.Source.Branch.Name, "exists", exists)
 	if !exists {
 		m.log.Info("source branch deleted; will import as Issue",
 			"pr", pr.ID, "branch", pr.Source.Branch.Name)

@@ -64,7 +64,9 @@ func TestBranchExists_slashInBranchName(t *testing.T) {
 	var gotPath string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
-		if r.Method == http.MethodGet && r.URL.Path == "/repos/org/repo/branches/feature%2Fadd" {
+		// Slash in branch name must be sent as a literal '/' in the URL path,
+		// not as '%2F'. GitHub's API server does not decode %2F as a path separator.
+		if r.Method == http.MethodGet && r.URL.Path == "/repos/org/repo/branches/feature/add" {
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, `{"name":"feature/add"}`)
 			return
