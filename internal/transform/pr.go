@@ -271,7 +271,7 @@ func (t *Transformer) labelsForPR(pr *bitbucket.PullRequest) []string {
 // --- formatting helpers ---
 
 func formatDate(t time.Time) string {
-	return t.UTC().Format("2006-01-02 15:04 UTC")
+	return t.Local().Format("2006-01-02 15:04 MST")
 }
 
 func isOpen(state string) bool {

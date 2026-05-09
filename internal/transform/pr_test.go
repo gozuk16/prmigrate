@@ -120,3 +120,24 @@ func TestBuildCommentBodies_skipsDeleted(t *testing.T) {
 		t.Errorf("expected 1 body (deleted comment filtered), got %d", len(bodies))
 	}
 }
+
+func TestBuildPRBody_dateUsesLocalTimezone(t *testing.T) {
+	// Temporarily override time.Local to a known non-UTC zone.
+	// This makes the test deterministic regardless of the CI environment.
+	origLocal := time.Local
+	time.Local = time.FixedZone("TST", 5*3600) // UTC+5, fictional "Test Standard Time"
+	defer func() { time.Local = origLocal }()
+
+	xfmr := newTestTransformer()
+	pr := makeOpenPR() // CreatedOn = 2024-01-10 09:00 UTC
+
+	body := xfmr.BuildPRBody(pr)
+
+	// 09:00 UTC in UTC+5 = 14:00 TST
+	if !strings.Contains(body, "2024-01-10 14:00 TST") {
+		t.Errorf("expected date in local timezone (TST), body:\n%s", body)
+	}
+	if strings.Contains(body, "09:00 UTC") {
+		t.Errorf("date should not be hardcoded UTC, body:\n%s", body)
+	}
+}
