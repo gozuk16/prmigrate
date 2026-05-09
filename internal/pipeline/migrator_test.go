@@ -108,6 +108,11 @@ func TestMigrator_mergedPR(t *testing.T) {
 	if !hasLabel(got.Issue.Labels, "pull-request") {
 		t.Errorf("expected labels to contain 'pull-request', got %v", got.Issue.Labels)
 	}
+
+	report := m.DryRunReport()
+	if report.Total() != 0 {
+		t.Errorf("non-dry-run should have empty report, got %d entries", report.Total())
+	}
 }
 
 // TestMigrator_openPR_branchExists: an OPEN PR whose source branch exists
@@ -323,5 +328,25 @@ func TestMigrator_dryRun(t *testing.T) {
 
 	if writeAttempted {
 		t.Error("write was attempted in dry-run mode (explicit check)")
+	}
+
+	report := m.DryRunReport()
+	if report.Total() != 1 {
+		t.Errorf("expected 1 dry-run entry, got %d", report.Total())
+	}
+	if got := report.CountByAction(pipeline.ActionGitHubPR); got != 1 {
+		t.Errorf("expected 1 ActionGitHubPR entry, got %d", got)
+	}
+	if len(report.Entries) > 0 {
+		e := report.Entries[0]
+		if e.PRNumber != 1 {
+			t.Errorf("entry PRNumber = %d, want 1", e.PRNumber)
+		}
+		if e.Head != "feature/add" {
+			t.Errorf("entry Head = %q, want feature/add", e.Head)
+		}
+		if e.Body == "" {
+			t.Error("entry Body should not be empty")
+		}
 	}
 }

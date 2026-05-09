@@ -35,11 +35,12 @@ type Migrator struct {
 	BitbucketRepo string
 	GitHubRepo    string
 
-	bb    *bitbucket.Client
-	gh    *githubimport.Client
-	ghapi *githubapi.Client
-	xfmr  *transform.Transformer
-	log   *slog.Logger
+	bb     *bitbucket.Client
+	gh     *githubimport.Client
+	ghapi  *githubapi.Client
+	xfmr   *transform.Transformer
+	log    *slog.Logger
+	report DryRunReport
 }
 
 // New constructs a Migrator wired up with all the per-repo clients.
@@ -135,6 +136,14 @@ func (m *Migrator) migrateOne(ctx context.Context, prID int) error {
 			"title", pr.Title,
 			"comments", len(req.Comments),
 			"body_bytes", len(req.Issue.Body))
+		m.report.Entries = append(m.report.Entries, DryRunEntry{
+			PRNumber:     prID,
+			Title:        pr.Title,
+			Action:       ActionIssueImport,
+			State:        pr.State,
+			CommentCount: len(req.Comments),
+			Body:         req.Issue.Body,
+		})
 		return nil
 	}
 
@@ -175,8 +184,18 @@ func (m *Migrator) tryCreateGitHubPR(
 	}
 
 	if m.Cfg.Tuning.DryRun {
+		body := m.xfmr.BuildPRBody(pr)
 		m.log.Info("dry-run: would create GitHub PR",
 			"pr", pr.ID, "head", pr.Source.Branch.Name, "base", pr.Destination.Branch.Name)
+		m.report.Entries = append(m.report.Entries, DryRunEntry{
+			PRNumber: pr.ID,
+			Title:    pr.Title,
+			Action:   ActionGitHubPR,
+			State:    pr.State,
+			Head:     pr.Source.Branch.Name,
+			Base:     pr.Destination.Branch.Name,
+			Body:     body,
+		})
 		return true, nil
 	}
 
@@ -224,6 +243,12 @@ func (m *Migrator) submitPlaceholder(ctx context.Context, n int) error {
 	}
 	if m.Cfg.Tuning.DryRun {
 		m.log.Info("dry-run: would create placeholder", "n", n)
+		m.report.Entries = append(m.report.Entries, DryRunEntry{
+			PRNumber: n,
+			Title:    fmt.Sprintf("Deleted Bitbucket PR #%d", n),
+			Action:   ActionPlaceholder,
+			Body:     "_This Bitbucket pull request number was missing or deleted at migration time._",
+		})
 		return nil
 	}
 	status, err := m.gh.SubmitAndWait(ctx, req)
@@ -244,4 +269,10 @@ func sortInts(a []int) {
 			a[j-1], a[j] = a[j], a[j-1]
 		}
 	}
+}
+
+// DryRunReport returns the collected dry-run entries after Run() completes.
+// Returns an empty report if DryRun was not enabled.
+func (m *Migrator) DryRunReport() DryRunReport {
+	return m.report
 }
