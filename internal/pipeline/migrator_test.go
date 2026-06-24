@@ -73,6 +73,11 @@ func TestMigrator_mergedPR(t *testing.T) {
 	var got importBody
 
 	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// IssueExists check (idempotency): not yet migrated → 404
+		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/issues/") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		if r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/import/issues" {
 			body, _ := io.ReadAll(r.Body)
 			if err := json.Unmarshal(body, &got); err != nil {
@@ -144,6 +149,9 @@ func TestMigrator_openPR_branchExists(t *testing.T) {
 
 	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		// IssueExists check (idempotency): not yet migrated → 404
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/issues/"):
+			w.WriteHeader(http.StatusNotFound)
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/branches/"):
 			rawBranch := strings.TrimPrefix(r.URL.Path, "/repos/org/repo/branches/")
 			gotBranch, _ := url.PathUnescape(rawBranch)
@@ -202,6 +210,9 @@ func TestMigrator_openPR_branchDeleted(t *testing.T) {
 	var importCalled bool
 	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		// IssueExists check (idempotency): not yet migrated → 404
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/issues/"):
+			w.WriteHeader(http.StatusNotFound)
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/branches/"):
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprint(w, `{"message":"Not Found"}`)
@@ -253,6 +264,11 @@ func TestMigrator_gapFill(t *testing.T) {
 
 	var importCount atomic.Int32
 	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// IssueExists check (idempotency): not yet migrated → 404
+		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/issues/") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		if r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/import/issues" {
 			importCount.Add(1)
 			w.WriteHeader(http.StatusAccepted)
@@ -300,17 +316,18 @@ func TestMigrator_dryRun(t *testing.T) {
 	var writeAttempted bool
 	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		// IssueExists check is a read-only GET, allowed even in dry-run.
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/issues/"):
+			w.WriteHeader(http.StatusNotFound)
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/branches/"):
 			rawBranch := strings.TrimPrefix(r.URL.Path, "/repos/org/repo/branches/")
 			gotBranch, _ := url.PathUnescape(rawBranch)
 			if gotBranch != "feature/add" {
 				t.Errorf("branch check: got %q, want feature/add", gotBranch)
 			}
-			// BranchExists is a read-only call; allowed even in dry-run.
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, `{"name":"feature/add"}`)
 		default:
-			// Any POST (Import API or PR API) must not be called in dry-run.
 			writeAttempted = true
 			t.Errorf("dry-run must not make write requests: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -348,5 +365,54 @@ func TestMigrator_dryRun(t *testing.T) {
 		if e.Body == "" {
 			t.Error("entry Body should not be empty")
 		}
+	}
+}
+
+// TestMigrator_skipAlreadyMigrated: when GitHub already has Issue #1,
+// the migrator skips it without calling the Import API.
+func TestMigrator_skipAlreadyMigrated(t *testing.T) {
+	const prJSON = `{"id":1,"title":"Fix bug","state":"MERGED","created_on":"2024-01-10T09:00:00+00:00","updated_on":"2024-01-10T09:00:00+00:00"}`
+
+	bbSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repositories/ws/repo/pullrequests":
+			fmt.Fprint(w, `{"values":[{"id":1}]}`)
+		case "/repositories/ws/repo/pullrequests/1":
+			fmt.Fprint(w, prJSON)
+		case "/repositories/ws/repo/pullrequests/1/comments":
+			fmt.Fprint(w, `{"values":[]}`)
+		case "/repositories/ws/repo/pullrequests/1/activity":
+			fmt.Fprint(w, `{"values":[]}`)
+		default:
+			t.Errorf("unexpected bb request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer bbSrv.Close()
+
+	var importCalled bool
+	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		// IssueExists check: already migrated → 200
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/org/repo/issues/1":
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `{"number":1,"title":"Fix bug"}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/import/issues":
+			importCalled = true
+			t.Error("Import API must not be called when issue already exists")
+			w.WriteHeader(http.StatusAccepted)
+			fmt.Fprint(w, terminalImportResponse)
+		default:
+			t.Errorf("unexpected gh request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer ghSrv.Close()
+
+	m := newTestMigrator(t, bbSrv.URL, ghSrv.URL, config.TuningConfig{BitbucketRPS: 1000})
+	if err := m.Run(context.Background()); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if importCalled {
+		t.Error("Import API was called despite issue already existing on GitHub")
 	}
 }

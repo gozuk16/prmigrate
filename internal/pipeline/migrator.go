@@ -85,6 +85,14 @@ func (m *Migrator) Run(ctx context.Context) error {
 			return err
 		}
 
+		exists, err := m.ghapi.IssueExists(ctx, n)
+		if err != nil {
+			m.log.Warn("issue existence check failed, proceeding", "n", n, "err", err)
+		} else if exists {
+			m.log.Info("skipping: already exists on GitHub", "n", n)
+			continue
+		}
+
 		if !idsSet[n] {
 			if !m.Cfg.Tuning.FillGaps {
 				continue
