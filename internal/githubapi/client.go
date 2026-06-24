@@ -120,6 +120,33 @@ func (c *Client) CreateIssueComment(ctx context.Context, issueNumber int, commen
 	return nil
 }
 
+// IssueExists reports whether GitHub issue (or pull request) number n exists.
+// A 404 response returns (false, nil); other non-200 responses return an error.
+func (c *Client) IssueExists(ctx context.Context, issueNumber int) (bool, error) {
+	url := fmt.Sprintf("%s/issues/%d", c.baseURL, issueNumber)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return false, err
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body) //nolint:errcheck
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusNotFound:
+		return false, nil
+	default:
+		return false, fmt.Errorf("check issue %d: %s", issueNumber, resp.Status)
+	}
+}
+
 func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("Authorization", "token "+c.token)
 	req.Header.Set("Accept", "application/vnd.github+json")

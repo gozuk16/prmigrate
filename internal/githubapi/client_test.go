@@ -163,3 +163,53 @@ func TestCreateIssueComment_serverError(t *testing.T) {
 		t.Error("expected error for 5xx response")
 	}
 }
+
+func TestIssueExists_found(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/repos/org/repo/issues/42" {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `{"number":42,"title":"Fix bug"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	c := githubapi.NewClient(srv.URL, "org/repo", "tok")
+	exists, err := c.IssueExists(context.Background(), 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
+		t.Error("expected issue to exist")
+	}
+}
+
+func TestIssueExists_notFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	c := githubapi.NewClient(srv.URL, "org/repo", "tok")
+	exists, err := c.IssueExists(context.Background(), 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exists {
+		t.Error("expected issue to not exist")
+	}
+}
+
+func TestIssueExists_serverError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	c := githubapi.NewClient(srv.URL, "org/repo", "tok")
+	_, err := c.IssueExists(context.Background(), 42)
+	if err == nil {
+		t.Error("expected error for 5xx response")
+	}
+}
