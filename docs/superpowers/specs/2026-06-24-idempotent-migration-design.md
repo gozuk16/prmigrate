@@ -65,7 +65,6 @@ for n := 1; n <= maxID; n++ {
 | ファイル | 変更内容 |
 |---|---|
 | `internal/githubapi/client.go` | `IssueExists` メソッド追加 |
-| `internal/githubapi/types.go` | 必要に応じて Issue 型追加 |
 | `internal/githubapi/client_test.go` | `IssueExists` のテスト追加 |
 | `internal/pipeline/migrator.go` | ループ内に存在チェック追加 |
 | `internal/pipeline/migrator_test.go` | スキップシナリオのテスト追加 |
