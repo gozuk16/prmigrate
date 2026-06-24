@@ -369,20 +369,12 @@ func TestMigrator_dryRun(t *testing.T) {
 }
 
 // TestMigrator_skipAlreadyMigrated: when GitHub already has Issue #1,
-// the migrator skips it without calling the Import API.
+// the migrator skips it without calling the Import API or fetching PR details.
 func TestMigrator_skipAlreadyMigrated(t *testing.T) {
-	const prJSON = `{"id":1,"title":"Fix bug","state":"MERGED","created_on":"2024-01-10T09:00:00+00:00","updated_on":"2024-01-10T09:00:00+00:00"}`
-
 	bbSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repositories/ws/repo/pullrequests":
 			fmt.Fprint(w, `{"values":[{"id":1}]}`)
-		case "/repositories/ws/repo/pullrequests/1":
-			fmt.Fprint(w, prJSON)
-		case "/repositories/ws/repo/pullrequests/1/comments":
-			fmt.Fprint(w, `{"values":[]}`)
-		case "/repositories/ws/repo/pullrequests/1/activity":
-			fmt.Fprint(w, `{"values":[]}`)
 		default:
 			t.Errorf("unexpected bb request: %s %s", r.Method, r.URL.Path)
 		}
