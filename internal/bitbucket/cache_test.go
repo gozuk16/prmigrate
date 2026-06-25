@@ -2,6 +2,7 @@ package bitbucket_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,17 +17,17 @@ import (
 
 // bbHandler は Bitbucket テストサーバーのハンドラを返す。
 // apiCalls はリクエスト数をカウントするためのアトミックカウンタ。
-func bbHandler(t *testing.T, apiCalls *int32, prJSON, commentsJSON, activityJSON string) http.HandlerFunc {
+func bbHandler(t *testing.T, apiCalls *int32, prID int, prJSON, commentsJSON, activityJSON string) http.HandlerFunc {
 	t.Helper()
 	return func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(apiCalls, 1)
 		p := r.URL.Path
 		switch {
-		case strings.HasSuffix(p, "/pullrequests/1/comments"):
+		case strings.HasSuffix(p, fmt.Sprintf("/pullrequests/%d/comments", prID)):
 			fmt.Fprint(w, commentsJSON)
-		case strings.HasSuffix(p, "/pullrequests/1/activity"):
+		case strings.HasSuffix(p, fmt.Sprintf("/pullrequests/%d/activity", prID)):
 			fmt.Fprint(w, activityJSON)
-		case strings.HasSuffix(p, "/pullrequests/1"):
+		case strings.HasSuffix(p, fmt.Sprintf("/pullrequests/%d", prID)):
 			fmt.Fprint(w, prJSON)
 		default:
 			http.NotFound(w, r)
@@ -44,7 +45,7 @@ const (
 // 最初の呼び出し後にキャッシュされ、2回目以降は API を呼ばないことを確認する。
 func TestCachedClient_terminalPR_cachedAfterFirstCall(t *testing.T) {
 	var apiCalls int32
-	srv := httptest.NewServer(bbHandler(t, &apiCalls, mergedPRJSON, emptyListJSON, emptyListJSON))
+	srv := httptest.NewServer(bbHandler(t, &apiCalls, 1, mergedPRJSON, emptyListJSON, emptyListJSON))
 	defer srv.Close()
 
 	cacheDir := t.TempDir()
@@ -103,7 +104,7 @@ func TestCachedClient_terminalPR_cachedAfterFirstCall(t *testing.T) {
 // TestCachedClient_openPR_notCached は OPEN PR がキャッシュされないことを確認する。
 func TestCachedClient_openPR_notCached(t *testing.T) {
 	var apiCalls int32
-	srv := httptest.NewServer(bbHandler(t, &apiCalls, openPRJSON, emptyListJSON, emptyListJSON))
+	srv := httptest.NewServer(bbHandler(t, &apiCalls, 1, openPRJSON, emptyListJSON, emptyListJSON))
 	defer srv.Close()
 
 	cacheDir := t.TempDir()
@@ -131,7 +132,7 @@ func TestCachedClient_openPR_notCached(t *testing.T) {
 // API から再取得することを確認する。
 func TestCachedClient_corruptCache_fallsBackToAPI(t *testing.T) {
 	var apiCalls int32
-	srv := httptest.NewServer(bbHandler(t, &apiCalls, mergedPRJSON, emptyListJSON, emptyListJSON))
+	srv := httptest.NewServer(bbHandler(t, &apiCalls, 1, mergedPRJSON, emptyListJSON, emptyListJSON))
 	defer srv.Close()
 
 	cacheDir := t.TempDir()
@@ -158,12 +159,29 @@ func TestCachedClient_corruptCache_fallsBackToAPI(t *testing.T) {
 	if got := atomic.LoadInt32(&apiCalls); got != 3 {
 		t.Errorf("expected 3 API calls on corrupt cache fallback, got %d", got)
 	}
+
+	// キャッシュが修復されていることを確認
+	data, err := os.ReadFile(filepath.Join(cacheDir, "1.json"))
+	if err != nil {
+		t.Fatalf("expected repaired cache file: %v", err)
+	}
+	var repaired struct {
+		PR struct {
+			ID int `json:"id"`
+		} `json:"pr"`
+	}
+	if err := json.Unmarshal(data, &repaired); err != nil {
+		t.Fatalf("repaired cache is not valid JSON: %v", err)
+	}
+	if repaired.PR.ID != 1 {
+		t.Errorf("repaired cache has wrong PR ID: got %d, want 1", repaired.PR.ID)
+	}
 }
 
 // TestCachedClient_writeError_returnsError はキャッシュ書き込みに失敗した場合に
 // エラーが返ることを確認する。
 func TestCachedClient_writeError_returnsError(t *testing.T) {
-	srv := httptest.NewServer(bbHandler(t, new(int32), mergedPRJSON, emptyListJSON, emptyListJSON))
+	srv := httptest.NewServer(bbHandler(t, new(int32), 1, mergedPRJSON, emptyListJSON, emptyListJSON))
 	defer srv.Close()
 
 	cacheDir := t.TempDir()
