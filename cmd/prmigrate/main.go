@@ -3,6 +3,7 @@
 // Usage:
 //
 //	prmigrate -config config.toml -repo workspace/repo
+//	prmigrate -config config.toml -repo workspace/repo -gh-repo org/repo
 //	prmigrate -config config.toml -repo workspace/repo -dry-run
 //	prmigrate -config config.toml -all
 package main
@@ -26,6 +27,7 @@ func main() {
 	var (
 		configPath = flag.String("config", "config.toml", "path to YAML config file")
 		repo       = flag.String("repo", "", `Bitbucket repo to migrate, e.g. "workspace/myrepo"`)
+		ghRepo     = flag.String("gh-repo", "", `GitHub repo to migrate into, e.g. "org/repo" (overrides repo_mapping when used with -repo)`)
 		all        = flag.Bool("all", false, "migrate every repo in repo_mapping")
 		dryRun     = flag.Bool("dry-run", false, "do not write to GitHub; only fetch and transform")
 		verbose    = flag.Bool("v", false, "verbose logging")
@@ -54,6 +56,22 @@ func main() {
 		fail(log, "github auth", fmt.Errorf("set github.token or PRMIGRATE_GITHUB_TOKEN (or use -dry-run)"))
 	}
 
+	// Validate flag combinations.
+	if *ghRepo != "" && *repo == "" {
+		fail(log, "flag validation", fmt.Errorf("-gh-repo requires -repo"))
+	}
+	if *ghRepo != "" && *all {
+		fail(log, "flag validation", fmt.Errorf("-gh-repo cannot be used with -all"))
+	}
+
+	// Validate flag formats.
+	if *repo != "" && !strings.Contains(*repo, "/") {
+		fail(log, "flag validation", fmt.Errorf("-repo must be in workspace/repo form, got %q", *repo))
+	}
+	if *ghRepo != "" && !strings.Contains(*ghRepo, "/") {
+		fail(log, "flag validation", fmt.Errorf("-gh-repo must be in org/repo form, got %q", *ghRepo))
+	}
+
 	// Decide target set.
 	var targets [][2]string // {bb, gh} pairs
 	switch {
@@ -61,6 +79,8 @@ func main() {
 		for bb, gh := range cfg.RepoMapping {
 			targets = append(targets, [2]string{bb, gh})
 		}
+	case *repo != "" && *ghRepo != "":
+		targets = [][2]string{{*repo, *ghRepo}}
 	case *repo != "":
 		gh, ok := cfg.LookupRepo(*repo)
 		if !ok {
