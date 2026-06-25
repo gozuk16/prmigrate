@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/cli/go-gh/v2/pkg/auth"
 )
 
 // Config is the root configuration. Loaded from a TOML file specified on the CLI.
@@ -108,17 +109,29 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// ResolveSecrets reads tokens from environment variables if the YAML field
-// is empty. Convention:
-//   - bitbucket.token: PRMIGRATE_BITBUCKET_TOKEN
-//   - github.token:    PRMIGRATE_GITHUB_TOKEN
-func (c *Config) ResolveSecrets() {
+// ResolveSecrets resolves tokens in priority order:
+//  1. Value already set in the TOML config field
+//  2. PRMIGRATE_BITBUCKET_TOKEN / PRMIGRATE_GITHUB_TOKEN environment variables
+//  3. gh CLI credential store (GitHub only, via cli/go-gh)
+//
+// Returns an error if the GitHub token cannot be resolved by any means.
+// Callers that run in dry-run mode may ignore the returned error.
+func (c *Config) ResolveSecrets() error {
 	if c.Bitbucket.Token == "" {
 		c.Bitbucket.Token = os.Getenv("PRMIGRATE_BITBUCKET_TOKEN")
 	}
 	if c.GitHub.Token == "" {
 		c.GitHub.Token = os.Getenv("PRMIGRATE_GITHUB_TOKEN")
 	}
+	if c.GitHub.Token == "" {
+		host := GithubHostname(c.GitHub.APIBase)
+		token, _ := auth.TokenForHost(host)
+		c.GitHub.Token = token
+	}
+	if c.GitHub.Token == "" {
+		return fmt.Errorf("github token not found: set github.token in config, PRMIGRATE_GITHUB_TOKEN env var, or run \"gh auth login\"")
+	}
+	return nil
 }
 
 // LookupUser returns the GitHub username corresponding to a Bitbucket user
