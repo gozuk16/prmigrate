@@ -43,7 +43,7 @@ func (c *Client) BranchExists(ctx context.Context, branch string) (bool, error) 
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 	switch resp.StatusCode {
@@ -74,7 +74,7 @@ func (c *Client) CreatePullRequest(ctx context.Context, prReq *CreatePullRequest
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated {
@@ -111,7 +111,7 @@ func (c *Client) CreateIssueComment(ctx context.Context, issueNumber int, commen
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated {
@@ -134,7 +134,7 @@ func (c *Client) IssueExists(ctx context.Context, issueNumber int) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 	switch resp.StatusCode {

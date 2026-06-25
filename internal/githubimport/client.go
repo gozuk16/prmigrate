@@ -65,7 +65,7 @@ func (c *Client) Submit(ctx context.Context, req *ImportRequest) (*ImportStatus,
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
@@ -93,7 +93,7 @@ func (c *Client) PollStatus(ctx context.Context, statusURL string) (*ImportStatu
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {

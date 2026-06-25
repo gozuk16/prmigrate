@@ -16,9 +16,11 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
+	"github.com/gozuk16/prmigrate/internal/bitbucket"
 	"github.com/gozuk16/prmigrate/internal/config"
 	"github.com/gozuk16/prmigrate/internal/pipeline"
 )
@@ -95,16 +97,28 @@ func main() {
 		os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	cacheBase := filepath.Join(filepath.Dir(*configPath), "cache")
 	for _, pair := range targets {
-		bb, gh := pair[0], pair[1]
-		log.Info("starting repo migration", "bb", bb, "gh", gh)
-		m := pipeline.New(cfg, bb, gh, log)
+		bbRepo, ghRepo := pair[0], pair[1]
+		log.Info("starting repo migration", "bb", bbRepo, "gh", ghRepo)
+		cacheDir := filepath.Join(cacheBase, strings.ReplaceAll(bbRepo, "/", "_"))
+		bbClient, err := bitbucket.NewCachedClient(
+			bitbucket.NewClient(cfg.Bitbucket.APIBase, bbRepo, bitbucket.Auth{
+				Username: cfg.Bitbucket.Username,
+				Token:    cfg.Bitbucket.Token,
+			}, cfg.Tuning.BitbucketRPS),
+			cacheDir,
+		)
+		if err != nil {
+			fail(log, "init cache", err)
+		}
+		m := pipeline.New(cfg, bbClient, bbRepo, ghRepo, log)
 		if err := m.Run(ctx); err != nil {
-			log.Error("repo migration failed", "bb", bb, "gh", gh, "err", err)
+			log.Error("repo migration failed", "bb", bbRepo, "gh", ghRepo, "err", err)
 		}
 		if cfg.Tuning.DryRun {
 			report := m.DryRunReport()
-			printDryRunReport(os.Stdout, bb, gh, report, *verbose)
+			printDryRunReport(os.Stdout, bbRepo, ghRepo, report, *verbose)
 		}
 	}
 }
@@ -116,23 +130,23 @@ func printDryRunReport(w io.Writer, bbRepo, ghRepo string, report pipeline.DryRu
 		for _, e := range report.Entries {
 			switch e.Action {
 			case pipeline.ActionGitHubPR:
-				fmt.Fprintf(w, "\n── #%d %s [GitHub PR: %s → %s] ──\n", e.PRNumber, e.Title, e.Head, e.Base)
+				fmt.Fprintf(w, "\n── #%d %s [GitHub PR: %s → %s] ──\n", e.PRNumber, e.Title, e.Head, e.Base) //nolint:errcheck
 			case pipeline.ActionIssueImport:
-				fmt.Fprintf(w, "\n── #%d %s [Issue Import / %s] ──\n", e.PRNumber, e.Title, e.State)
+				fmt.Fprintf(w, "\n── #%d %s [Issue Import / %s] ──\n", e.PRNumber, e.Title, e.State) //nolint:errcheck
 			case pipeline.ActionPlaceholder:
-				fmt.Fprintf(w, "\n── #%d %s [Placeholder] ──\n", e.PRNumber, e.Title)
+				fmt.Fprintf(w, "\n── #%d %s [Placeholder] ──\n", e.PRNumber, e.Title) //nolint:errcheck
 			}
-			fmt.Fprintln(w, e.Body)
-			fmt.Fprintln(w, divider)
+			fmt.Fprintln(w, e.Body)         //nolint:errcheck
+			fmt.Fprintln(w, divider)        //nolint:errcheck
 		}
 	}
 
-	fmt.Fprintf(w, "\n=== Dry Run: %s → %s ===\n", bbRepo, ghRepo)
-	fmt.Fprintf(w, "  GitHub PR (branch exists):       %d\n", report.CountByAction(pipeline.ActionGitHubPR))
-	fmt.Fprintf(w, "  Issue Import (merged/fallback):  %d\n", report.CountByAction(pipeline.ActionIssueImport))
-	fmt.Fprintf(w, "  Placeholder (gap fill):          %d\n", report.CountByAction(pipeline.ActionPlaceholder))
-	fmt.Fprintln(w, "  "+strings.Repeat("─", 33))
-	fmt.Fprintf(w, "  Total:                           %d\n", report.Total())
+	fmt.Fprintf(w, "\n=== Dry Run: %s → %s ===\n", bbRepo, ghRepo)                              //nolint:errcheck
+	fmt.Fprintf(w, "  GitHub PR (branch exists):       %d\n", report.CountByAction(pipeline.ActionGitHubPR))    //nolint:errcheck
+	fmt.Fprintf(w, "  Issue Import (merged/fallback):  %d\n", report.CountByAction(pipeline.ActionIssueImport)) //nolint:errcheck
+	fmt.Fprintf(w, "  Placeholder (gap fill):          %d\n", report.CountByAction(pipeline.ActionPlaceholder)) //nolint:errcheck
+	fmt.Fprintln(w, "  "+strings.Repeat("─", 33))                                                //nolint:errcheck
+	fmt.Fprintf(w, "  Total:                           %d\n", report.Total())                     //nolint:errcheck
 }
 
 func fail(log *slog.Logger, op string, err error) {

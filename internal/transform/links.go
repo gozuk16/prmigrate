@@ -38,14 +38,14 @@ func (t *Transformer) rewriteRepoURLs(s string) string {
 		if !ok {
 			return match // leave unmapped repos untouched
 		}
-		switch {
-		case kind == "pull-requests" || kind == "pull-request":
+		switch kind {
+		case "pull-requests", "pull-request":
 			return fmt.Sprintf("https://github.com/%s/pull/%s", gh, tail)
-		case kind == "issues" || kind == "issue":
+		case "issues", "issue":
 			return fmt.Sprintf("https://github.com/%s/issues/%s", gh, tail)
-		case kind == "commits" || kind == "commit":
+		case "commits", "commit":
 			return fmt.Sprintf("https://github.com/%s/commit/%s", gh, tail)
-		case kind == "src":
+		case "src":
 			return fmt.Sprintf("https://github.com/%s/blob/%s", gh, tail)
 		}
 		return match

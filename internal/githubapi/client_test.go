@@ -14,7 +14,7 @@ func TestBranchExists_found(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/repos/org/repo/branches/feature-x" {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{"name":"feature-x"}`)
+			_, _ = fmt.Fprint(w, `{"name":"feature-x"}`)
 			return
 		}
 		http.NotFound(w, r)
@@ -68,7 +68,7 @@ func TestBranchExists_slashInBranchName(t *testing.T) {
 		// not as '%2F'. GitHub's API server does not decode %2F as a path separator.
 		if r.Method == http.MethodGet && r.URL.Path == "/repos/org/repo/branches/feature/add" {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{"name":"feature/add"}`)
+			_, _ = fmt.Fprint(w, `{"name":"feature/add"}`)
 			return
 		}
 		http.NotFound(w, r)
@@ -89,7 +89,7 @@ func TestCreatePullRequest_success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/pulls" {
 			w.WriteHeader(http.StatusCreated)
-			fmt.Fprint(w, `{"number":5,"html_url":"https://github.com/org/repo/pull/5"}`)
+			_, _ = fmt.Fprint(w, `{"number":5,"html_url":"https://github.com/org/repo/pull/5"}`)
 			return
 		}
 		http.NotFound(w, r)
@@ -117,7 +117,7 @@ func TestCreatePullRequest_success(t *testing.T) {
 func TestCreatePullRequest_validationError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		fmt.Fprint(w, `{"message":"Validation Failed","errors":[{"message":"No commits between main and feature-x"}]}`)
+		_, _ = fmt.Fprint(w, `{"message":"Validation Failed","errors":[{"message":"No commits between main and feature-x"}]}`)
 	}))
 	defer srv.Close()
 
@@ -137,7 +137,7 @@ func TestCreateIssueComment_success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/issues/5/comments" {
 			w.WriteHeader(http.StatusCreated)
-			fmt.Fprint(w, `{"id":101}`)
+			_, _ = fmt.Fprint(w, `{"id":101}`)
 			return
 		}
 		http.NotFound(w, r)
@@ -168,7 +168,7 @@ func TestIssueExists_found(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/repos/org/repo/issues/42" {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{"number":42,"title":"Fix bug"}`)
+			_, _ = fmt.Fprint(w, `{"number":42,"title":"Fix bug"}`)
 			return
 		}
 		http.NotFound(w, r)
