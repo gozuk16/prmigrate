@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- GitHub トークンを `gh auth login` の認証ストアから自動取得できるようになった。`github.token` の config 指定・`PRMIGRATE_GITHUB_TOKEN` 環境変数も引き続き使用可能（優先順位: TOML > 環境変数 > gh 認証ストア）。
 - `formatDate` が実行環境の OS タイムゾーン（`time.Local`）で日時を表示するように変更（`2006-01-02 15:04 JST` 形式）
 - `internal/githubapi`: GitHub REST API クライアント（BranchExists / CreatePullRequest / CreateIssueComment）
 - OPEN PR のうちソースブランチが GitHub 側に存在するものを本物の GitHub PR として再作成する機能

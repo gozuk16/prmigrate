@@ -44,16 +44,14 @@ func main() {
 	if err != nil {
 		fail(log, "load config", err)
 	}
-	cfg.ResolveSecrets()
 	if *dryRun {
 		cfg.Tuning.DryRun = true
 	}
-
+	if err := cfg.ResolveSecrets(); err != nil && !cfg.Tuning.DryRun {
+		fail(log, "github auth", err)
+	}
 	if cfg.Bitbucket.Token == "" {
 		fail(log, "bitbucket auth", fmt.Errorf("set bitbucket.token or PRMIGRATE_BITBUCKET_TOKEN"))
-	}
-	if !cfg.Tuning.DryRun && cfg.GitHub.Token == "" {
-		fail(log, "github auth", fmt.Errorf("set github.token or PRMIGRATE_GITHUB_TOKEN (or use -dry-run)"))
 	}
 
 	// Validate flag combinations.
