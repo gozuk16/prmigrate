@@ -23,3 +23,14 @@ func TestApplyDefaults_BitbucketAPIBase_customPreserved(t *testing.T) {
 		t.Errorf("expected custom value preserved, got %q", cfg.Bitbucket.APIBase)
 	}
 }
+
+func TestValidate_emptyRepoMapping_ok(t *testing.T) {
+	cfg := &config.Config{
+		Bitbucket:   config.BitbucketConfig{Username: "user"},
+		RepoMapping: map[string]string{},
+	}
+	cfg.ApplyDefaults()
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("expected no error with empty repo_mapping, got: %v", err)
+	}
+}

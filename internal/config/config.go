@@ -99,9 +99,6 @@ func (c *Config) Validate() error {
 	if c.Bitbucket.Username == "" {
 		return fmt.Errorf("bitbucket.username is required")
 	}
-	if len(c.RepoMapping) == 0 {
-		return fmt.Errorf("repo_mapping must contain at least one entry")
-	}
 	for bRepo, gRepo := range c.RepoMapping {
 		if !strings.Contains(bRepo, "/") || !strings.Contains(gRepo, "/") {
 			return fmt.Errorf(`repo_mapping entries must be in "workspace/repo" form: %q -> %q`, bRepo, gRepo)
