@@ -3,6 +3,7 @@
 // Usage:
 //
 //	prmigrate -config config.toml -repo workspace/repo
+//	prmigrate -config config.toml -repo workspace/repo -gh-repo org/repo
 //	prmigrate -config config.toml -repo workspace/repo -dry-run
 //	prmigrate -config config.toml -all
 package main
@@ -61,6 +62,14 @@ func main() {
 	}
 	if *ghRepo != "" && *all {
 		fail(log, "flag validation", fmt.Errorf("-gh-repo cannot be used with -all"))
+	}
+
+	// Validate flag formats.
+	if *repo != "" && !strings.Contains(*repo, "/") {
+		fail(log, "flag validation", fmt.Errorf("-repo must be in workspace/repo form, got %q", *repo))
+	}
+	if *ghRepo != "" && !strings.Contains(*ghRepo, "/") {
+		fail(log, "flag validation", fmt.Errorf("-gh-repo must be in org/repo form, got %q", *ghRepo))
 	}
 
 	// Decide target set.
