@@ -130,23 +130,23 @@ func printDryRunReport(w io.Writer, bbRepo, ghRepo string, report pipeline.DryRu
 		for _, e := range report.Entries {
 			switch e.Action {
 			case pipeline.ActionGitHubPR:
-				fmt.Fprintf(w, "\n── #%d %s [GitHub PR: %s → %s] ──\n", e.PRNumber, e.Title, e.Head, e.Base)
+				fmt.Fprintf(w, "\n── #%d %s [GitHub PR: %s → %s] ──\n", e.PRNumber, e.Title, e.Head, e.Base) //nolint:errcheck
 			case pipeline.ActionIssueImport:
-				fmt.Fprintf(w, "\n── #%d %s [Issue Import / %s] ──\n", e.PRNumber, e.Title, e.State)
+				fmt.Fprintf(w, "\n── #%d %s [Issue Import / %s] ──\n", e.PRNumber, e.Title, e.State) //nolint:errcheck
 			case pipeline.ActionPlaceholder:
-				fmt.Fprintf(w, "\n── #%d %s [Placeholder] ──\n", e.PRNumber, e.Title)
+				fmt.Fprintf(w, "\n── #%d %s [Placeholder] ──\n", e.PRNumber, e.Title) //nolint:errcheck
 			}
-			fmt.Fprintln(w, e.Body)
-			fmt.Fprintln(w, divider)
+			fmt.Fprintln(w, e.Body)         //nolint:errcheck
+			fmt.Fprintln(w, divider)        //nolint:errcheck
 		}
 	}
 
-	fmt.Fprintf(w, "\n=== Dry Run: %s → %s ===\n", bbRepo, ghRepo)
-	fmt.Fprintf(w, "  GitHub PR (branch exists):       %d\n", report.CountByAction(pipeline.ActionGitHubPR))
-	fmt.Fprintf(w, "  Issue Import (merged/fallback):  %d\n", report.CountByAction(pipeline.ActionIssueImport))
-	fmt.Fprintf(w, "  Placeholder (gap fill):          %d\n", report.CountByAction(pipeline.ActionPlaceholder))
-	fmt.Fprintln(w, "  "+strings.Repeat("─", 33))
-	fmt.Fprintf(w, "  Total:                           %d\n", report.Total())
+	fmt.Fprintf(w, "\n=== Dry Run: %s → %s ===\n", bbRepo, ghRepo)                              //nolint:errcheck
+	fmt.Fprintf(w, "  GitHub PR (branch exists):       %d\n", report.CountByAction(pipeline.ActionGitHubPR))    //nolint:errcheck
+	fmt.Fprintf(w, "  Issue Import (merged/fallback):  %d\n", report.CountByAction(pipeline.ActionIssueImport)) //nolint:errcheck
+	fmt.Fprintf(w, "  Placeholder (gap fill):          %d\n", report.CountByAction(pipeline.ActionPlaceholder)) //nolint:errcheck
+	fmt.Fprintln(w, "  "+strings.Repeat("─", 33))                                                //nolint:errcheck
+	fmt.Fprintf(w, "  Total:                           %d\n", report.Total())                     //nolint:errcheck
 }
 
 func fail(log *slog.Logger, op string, err error) {

@@ -75,7 +75,7 @@ func (c *Client) doJSON(ctx context.Context, fullURL string, out any) error {
 		}
 
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		resp.Body.Close() //nolint:errcheck
 
 		switch {
 		case resp.StatusCode == http.StatusOK:

@@ -24,11 +24,11 @@ func bbHandler(t *testing.T, apiCalls *int32, prID int, prJSON, commentsJSON, ac
 		p := r.URL.Path
 		switch {
 		case strings.HasSuffix(p, fmt.Sprintf("/pullrequests/%d/comments", prID)):
-			fmt.Fprint(w, commentsJSON)
+			_, _ = fmt.Fprint(w, commentsJSON)
 		case strings.HasSuffix(p, fmt.Sprintf("/pullrequests/%d/activity", prID)):
-			fmt.Fprint(w, activityJSON)
+			_, _ = fmt.Fprint(w, activityJSON)
 		case strings.HasSuffix(p, fmt.Sprintf("/pullrequests/%d", prID)):
-			fmt.Fprint(w, prJSON)
+			_, _ = fmt.Fprint(w, prJSON)
 		default:
 			http.NotFound(w, r)
 		}

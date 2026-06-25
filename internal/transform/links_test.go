@@ -99,6 +99,14 @@ func TestRewriteBody_singularCommitURL(t *testing.T) {
 	}
 }
 
+func TestRewriteBody_singularIssueURL(t *testing.T) {
+	pr := makePRWithDesc("Fixes https://bitbucket.org/ws/repo/issue/3")
+	body := newTestTransformer().BuildPRBody(pr)
+	if !strings.Contains(body, "https://github.com/org/repo/issues/3") {
+		t.Errorf("singular issue URL not rewritten; body:\n%s", body)
+	}
+}
+
 func TestRewriteBody_uuidMention(t *testing.T) {
 	// Bitbucket uses brace-UUID form @{uuid} for legacy users.
 	// When unmapped, the @ is stripped and the brace-UUID text is preserved.

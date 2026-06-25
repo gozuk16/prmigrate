@@ -48,13 +48,13 @@ func TestMigrator_mergedPR(t *testing.T) {
 	bbSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repositories/ws/repo/pullrequests":
-			fmt.Fprint(w, `{"values":[{"id":1}]}`)
+			_, _ = fmt.Fprint(w, `{"values":[{"id":1}]}`)
 		case "/repositories/ws/repo/pullrequests/1":
-			fmt.Fprint(w, prJSON)
+			_, _ = fmt.Fprint(w, prJSON)
 		case "/repositories/ws/repo/pullrequests/1/comments":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		case "/repositories/ws/repo/pullrequests/1/activity":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		default:
 			t.Errorf("unexpected bb request: %s %s", r.Method, r.URL.Path)
 		}
@@ -81,7 +81,7 @@ func TestMigrator_mergedPR(t *testing.T) {
 				t.Fatalf("unmarshal request body: %v", err)
 			}
 			w.WriteHeader(http.StatusAccepted)
-			fmt.Fprint(w, terminalImportResponse)
+			_, _ = fmt.Fprint(w, terminalImportResponse)
 			return
 		}
 		t.Errorf("unexpected gh request: %s %s", r.Method, r.URL.Path)
@@ -125,13 +125,13 @@ func TestMigrator_openPR_branchExists(t *testing.T) {
 	bbSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repositories/ws/repo/pullrequests":
-			fmt.Fprint(w, `{"values":[{"id":1}]}`)
+			_, _ = fmt.Fprint(w, `{"values":[{"id":1}]}`)
 		case "/repositories/ws/repo/pullrequests/1":
-			fmt.Fprint(w, prJSON)
+			_, _ = fmt.Fprint(w, prJSON)
 		case "/repositories/ws/repo/pullrequests/1/comments":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		case "/repositories/ws/repo/pullrequests/1/activity":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		default:
 			t.Errorf("unexpected bb request: %s %s", r.Method, r.URL.Path)
 		}
@@ -156,14 +156,14 @@ func TestMigrator_openPR_branchExists(t *testing.T) {
 				t.Errorf("branch check: got %q, want feature/add", gotBranch)
 			}
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{"name":"feature/add"}`)
+			_, _ = fmt.Fprint(w, `{"name":"feature/add"}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/pulls":
 			body, _ := io.ReadAll(r.Body)
 			if err := json.Unmarshal(body, &gotPR); err != nil {
 				t.Fatalf("unmarshal request body: %v", err)
 			}
 			w.WriteHeader(http.StatusCreated)
-			fmt.Fprint(w, `{"number":1,"html_url":"http://example.com/pull/1"}`)
+			_, _ = fmt.Fprint(w, `{"number":1,"html_url":"http://example.com/pull/1"}`)
 		default:
 			t.Errorf("unexpected gh request: %s %s", r.Method, r.URL.Path)
 		}
@@ -191,13 +191,13 @@ func TestMigrator_openPR_branchDeleted(t *testing.T) {
 	bbSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repositories/ws/repo/pullrequests":
-			fmt.Fprint(w, `{"values":[{"id":1}]}`)
+			_, _ = fmt.Fprint(w, `{"values":[{"id":1}]}`)
 		case "/repositories/ws/repo/pullrequests/1":
-			fmt.Fprint(w, prJSON)
+			_, _ = fmt.Fprint(w, prJSON)
 		case "/repositories/ws/repo/pullrequests/1/comments":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		case "/repositories/ws/repo/pullrequests/1/activity":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		default:
 			t.Errorf("unexpected bb request: %s %s", r.Method, r.URL.Path)
 		}
@@ -212,11 +212,11 @@ func TestMigrator_openPR_branchDeleted(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/org/repo/branches/"):
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprint(w, `{"message":"Not Found"}`)
+			_, _ = fmt.Fprint(w, `{"message":"Not Found"}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/import/issues":
 			importCalled = true
 			w.WriteHeader(http.StatusAccepted)
-			fmt.Fprint(w, terminalImportResponse)
+			_, _ = fmt.Fprint(w, terminalImportResponse)
 		default:
 			t.Errorf("unexpected gh request: %s %s", r.Method, r.URL.Path)
 		}
@@ -242,17 +242,17 @@ func TestMigrator_gapFill(t *testing.T) {
 	bbSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repositories/ws/repo/pullrequests":
-			fmt.Fprint(w, `{"values":[{"id":1},{"id":3}]}`)
+			_, _ = fmt.Fprint(w, `{"values":[{"id":1},{"id":3}]}`)
 		case "/repositories/ws/repo/pullrequests/1":
-			fmt.Fprint(w, pr1JSON)
+			_, _ = fmt.Fprint(w, pr1JSON)
 		case "/repositories/ws/repo/pullrequests/3":
-			fmt.Fprint(w, pr3JSON)
+			_, _ = fmt.Fprint(w, pr3JSON)
 		case "/repositories/ws/repo/pullrequests/1/comments",
 			"/repositories/ws/repo/pullrequests/3/comments":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		case "/repositories/ws/repo/pullrequests/1/activity",
 			"/repositories/ws/repo/pullrequests/3/activity":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		default:
 			t.Errorf("unexpected bb request: %s %s", r.Method, r.URL.Path)
 		}
@@ -269,7 +269,7 @@ func TestMigrator_gapFill(t *testing.T) {
 		if r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/import/issues" {
 			importCount.Add(1)
 			w.WriteHeader(http.StatusAccepted)
-			fmt.Fprint(w, terminalImportResponse)
+			_, _ = fmt.Fprint(w, terminalImportResponse)
 			return
 		}
 		t.Errorf("unexpected gh request: %s %s", r.Method, r.URL.Path)
@@ -297,13 +297,13 @@ func TestMigrator_dryRun(t *testing.T) {
 	bbSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repositories/ws/repo/pullrequests":
-			fmt.Fprint(w, `{"values":[{"id":1}]}`)
+			_, _ = fmt.Fprint(w, `{"values":[{"id":1}]}`)
 		case "/repositories/ws/repo/pullrequests/1":
-			fmt.Fprint(w, prJSON)
+			_, _ = fmt.Fprint(w, prJSON)
 		case "/repositories/ws/repo/pullrequests/1/comments":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		case "/repositories/ws/repo/pullrequests/1/activity":
-			fmt.Fprint(w, `{"values":[]}`)
+			_, _ = fmt.Fprint(w, `{"values":[]}`)
 		default:
 			t.Errorf("unexpected bb request: %s %s", r.Method, r.URL.Path)
 		}
@@ -323,7 +323,7 @@ func TestMigrator_dryRun(t *testing.T) {
 				t.Errorf("branch check: got %q, want feature/add", gotBranch)
 			}
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{"name":"feature/add"}`)
+			_, _ = fmt.Fprint(w, `{"name":"feature/add"}`)
 		default:
 			writeAttempted = true
 			t.Errorf("dry-run must not make write requests: %s %s", r.Method, r.URL.Path)
@@ -371,7 +371,7 @@ func TestMigrator_skipAlreadyMigrated(t *testing.T) {
 	bbSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repositories/ws/repo/pullrequests":
-			fmt.Fprint(w, `{"values":[{"id":1}]}`)
+			_, _ = fmt.Fprint(w, `{"values":[{"id":1}]}`)
 		default:
 			t.Errorf("unexpected bb request: %s %s", r.Method, r.URL.Path)
 		}
@@ -384,12 +384,12 @@ func TestMigrator_skipAlreadyMigrated(t *testing.T) {
 		// IssueExists check: already migrated → 200
 		case r.Method == http.MethodGet && r.URL.Path == "/repos/org/repo/issues/1":
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{"number":1,"title":"Fix bug"}`)
+			_, _ = fmt.Fprint(w, `{"number":1,"title":"Fix bug"}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/repos/org/repo/import/issues":
 			importCalled = true
 			t.Error("Import API must not be called when issue already exists")
 			w.WriteHeader(http.StatusAccepted)
-			fmt.Fprint(w, terminalImportResponse)
+			_, _ = fmt.Fprint(w, terminalImportResponse)
 		default:
 			t.Errorf("unexpected gh request: %s %s", r.Method, r.URL.Path)
 		}
