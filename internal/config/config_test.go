@@ -34,3 +34,23 @@ func TestValidate_emptyRepoMapping_ok(t *testing.T) {
 		t.Errorf("expected no error with empty repo_mapping, got: %v", err)
 	}
 }
+
+func TestGithubHostname(t *testing.T) {
+	tests := []struct {
+		apiBase string
+		want    string
+	}{
+		{"https://api.github.com", "github.com"},
+		{"https://api.github.com/", "github.com"},
+		{"https://github.example.com/api/v3", "github.example.com"},
+		{"https://github.example.com", "github.example.com"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.apiBase, func(t *testing.T) {
+			got := config.GithubHostname(tt.apiBase)
+			if got != tt.want {
+				t.Errorf("GithubHostname(%q) = %q, want %q", tt.apiBase, got, tt.want)
+			}
+		})
+	}
+}

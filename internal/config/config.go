@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -146,4 +147,19 @@ func (c *Config) LookupUserAny(identifiers ...string) (string, bool) {
 func (c *Config) LookupRepo(bbFullName string) (string, bool) {
 	gh, ok := c.RepoMapping[bbFullName]
 	return gh, ok
+}
+
+// GithubHostname extracts the gh-compatible hostname from a GitHub API base URL.
+// "https://api.github.com"           -> "github.com"
+// "https://github.example.com/api/v3" -> "github.example.com"
+func GithubHostname(apiBase string) string {
+	u, err := url.Parse(apiBase)
+	if err != nil || u.Host == "" {
+		return "github.com"
+	}
+	host := u.Hostname()
+	if strings.HasPrefix(host, "api.") {
+		return strings.TrimPrefix(host, "api.")
+	}
+	return host
 }
