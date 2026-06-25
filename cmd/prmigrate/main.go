@@ -16,9 +16,11 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
+	"github.com/gozuk16/prmigrate/internal/bitbucket"
 	"github.com/gozuk16/prmigrate/internal/config"
 	"github.com/gozuk16/prmigrate/internal/pipeline"
 )
@@ -95,16 +97,28 @@ func main() {
 		os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	cacheBase := filepath.Join(filepath.Dir(*configPath), "cache")
 	for _, pair := range targets {
-		bb, gh := pair[0], pair[1]
-		log.Info("starting repo migration", "bb", bb, "gh", gh)
-		m := pipeline.New(cfg, bb, gh, log)
+		bbRepo, ghRepo := pair[0], pair[1]
+		log.Info("starting repo migration", "bb", bbRepo, "gh", ghRepo)
+		cacheDir := filepath.Join(cacheBase, strings.ReplaceAll(bbRepo, "/", "_"))
+		bbClient, err := bitbucket.NewCachedClient(
+			bitbucket.NewClient(cfg.Bitbucket.APIBase, bbRepo, bitbucket.Auth{
+				Username: cfg.Bitbucket.Username,
+				Token:    cfg.Bitbucket.Token,
+			}, cfg.Tuning.BitbucketRPS),
+			cacheDir,
+		)
+		if err != nil {
+			fail(log, "init cache", err)
+		}
+		m := pipeline.New(cfg, bbClient, bbRepo, ghRepo, log)
 		if err := m.Run(ctx); err != nil {
-			log.Error("repo migration failed", "bb", bb, "gh", gh, "err", err)
+			log.Error("repo migration failed", "bb", bbRepo, "gh", ghRepo, "err", err)
 		}
 		if cfg.Tuning.DryRun {
 			report := m.DryRunReport()
-			printDryRunReport(os.Stdout, bb, gh, report, *verbose)
+			printDryRunReport(os.Stdout, bbRepo, ghRepo, report, *verbose)
 		}
 	}
 }

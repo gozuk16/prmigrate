@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Bitbucket PR データのローカルキャッシュ機能を追加。MERGED・DECLINED・SUPERSEDED の PR は `<config.toml 配置ディレクトリ>/cache/<repo>/` に JSON ファイルとして保存され、再実行時の Bitbucket API 呼び出しをゼロにする。
 - GitHub トークンを `gh auth login` の認証ストアから自動取得できるようになった。`github.token` の config 指定・`PRMIGRATE_GITHUB_TOKEN` 環境変数も引き続き使用可能（優先順位: TOML > 環境変数 > gh 認証ストア）。
 - `formatDate` が実行環境の OS タイムゾーン（`time.Local`）で日時を表示するように変更（`2006-01-02 15:04 JST` 形式）
 - `internal/githubapi`: GitHub REST API クライアント（BranchExists / CreatePullRequest / CreateIssueComment）
