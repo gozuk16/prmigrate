@@ -296,7 +296,7 @@ func (t *Transformer) formatUserMention(u *bitbucket.User) string {
 	if name == "" {
 		name = "unknown"
 	}
-	return "**" + name + "** _(unmapped Bitbucket user)_"
+	return "**" + name + "**"
 }
 
 func (t *Transformer) formatUserMentionCapital(u *bitbucket.User) string {
