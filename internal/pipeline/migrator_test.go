@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/gozuk16/prmigrate/internal/bitbucket"
 	"github.com/gozuk16/prmigrate/internal/config"
 	"github.com/gozuk16/prmigrate/internal/pipeline"
 )
@@ -22,11 +23,6 @@ import (
 func newTestMigrator(t *testing.T, bbURL, ghURL string, tuning config.TuningConfig) *pipeline.Migrator {
 	t.Helper()
 	cfg := &config.Config{
-		Bitbucket: config.BitbucketConfig{
-			APIBase:  bbURL,
-			Username: "user",
-			Token:    "token",
-		},
 		GitHub: config.GitHubConfig{
 			APIBase: ghURL,
 			Token:   "gh-token",
@@ -36,7 +32,8 @@ func newTestMigrator(t *testing.T, bbURL, ghURL string, tuning config.TuningConf
 		Tuning:      tuning,
 	}
 	cfg.ApplyDefaults()
-	return pipeline.New(cfg, "ws/repo", "org/repo", slog.Default())
+	bb := bitbucket.NewClient(bbURL, "ws/repo", bitbucket.Auth{Username: "user", Token: "token"}, tuning.BitbucketRPS)
+	return pipeline.New(cfg, bb, "ws/repo", "org/repo", slog.Default())
 }
 
 // terminalImportResponse is a GitHub Import API response with terminal status,

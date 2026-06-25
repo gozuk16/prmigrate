@@ -35,7 +35,7 @@ type Migrator struct {
 	BitbucketRepo string
 	GitHubRepo    string
 
-	bb     *bitbucket.Client
+	bb     bitbucket.Fetcher
 	gh     *githubimport.Client
 	ghapi  *githubapi.Client
 	xfmr   *transform.Transformer
@@ -44,12 +44,12 @@ type Migrator struct {
 }
 
 // New constructs a Migrator wired up with all the per-repo clients.
-func New(cfg *config.Config, bbRepo, ghRepo string, log *slog.Logger) *Migrator {
+func New(cfg *config.Config, bb bitbucket.Fetcher, bbRepo, ghRepo string, log *slog.Logger) *Migrator {
 	return &Migrator{
 		Cfg:           cfg,
 		BitbucketRepo: bbRepo,
 		GitHubRepo:    ghRepo,
-		bb:            bitbucket.NewClient(cfg.Bitbucket.APIBase, bbRepo, bitbucket.Auth{Username: cfg.Bitbucket.Username, Token: cfg.Bitbucket.Token}, cfg.Tuning.BitbucketRPS),
+		bb:            bb,
 		gh:            githubimport.NewClient(cfg.GitHub.APIBase, ghRepo, cfg.GitHub.Token),
 		ghapi:         githubapi.NewClient(cfg.GitHub.APIBase, ghRepo, cfg.GitHub.Token),
 		xfmr:          transform.New(cfg, bbRepo, ghRepo),
