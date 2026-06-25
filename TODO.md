@@ -2,6 +2,8 @@
 
 ## 完了
 
+- [x] GitHub トークン管理を gh 認証ストアに委譲（`cli/go-gh` フォールバック追加）
+
 - [x] 初期実装（Bitbucket → GitHub Issue Import API による移行）
   - Bitbucket Cloud REST API クライアント
   - GitHub Issue Import API クライアント（golden-comet）

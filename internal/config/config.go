@@ -124,7 +124,7 @@ func (c *Config) ResolveSecrets() error {
 		c.GitHub.Token = os.Getenv("PRMIGRATE_GITHUB_TOKEN")
 	}
 	if c.GitHub.Token == "" {
-		host := GithubHostname(c.GitHub.APIBase)
+		host := githubHostname(c.GitHub.APIBase)
 		token, _ := auth.TokenForHost(host)
 		c.GitHub.Token = token
 	}
@@ -162,10 +162,10 @@ func (c *Config) LookupRepo(bbFullName string) (string, bool) {
 	return gh, ok
 }
 
-// GithubHostname extracts the gh-compatible hostname from a GitHub API base URL.
-// "https://api.github.com"           -> "github.com"
+// githubHostname extracts the gh-compatible hostname from a GitHub API base URL.
+// "https://api.github.com"            -> "github.com"
 // "https://github.example.com/api/v3" -> "github.example.com"
-func GithubHostname(apiBase string) string {
+func githubHostname(apiBase string) string {
 	u, err := url.Parse(apiBase)
 	if err != nil || u.Host == "" {
 		return "github.com"
